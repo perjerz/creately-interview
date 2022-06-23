@@ -138,7 +138,6 @@ export class Cleaner {
     }
     isPlaced() {
         return !(isNaN(this.x) || isNaN(this.y) || !this.facing);
-
     }
     runInstruction() {
         if (!this.isPlaced()) {
