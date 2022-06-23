@@ -1,5 +1,6 @@
 import { CleanerState, ERROR_MESSAGE, Facing, Instruction, Coordinate } from "./interface";
 
+// Room may know cleaner to check bumping
 export class Room {
     private readonly width: number;
     private readonly height: number;
@@ -9,7 +10,13 @@ export class Room {
         this.height = height;
         this.cleaners = cleaners || [];
     }
-    addCleaner(cleaner: Cleaner) {
+    // Lazy x,y, facing initialization here instead of cleaner constructor because placing cleaner need room boundary belongs to room class
+    // In the future, it may be possible to place
+    addCleaner(cleaner: Cleaner, x: number, y: number, facing: Facing) {
+        if (x < 0 || y < 0 || x > this.width - 1 || y > this.height - 1) {
+            throw new Error(ERROR_MESSAGE.CLEANER_CANNOT_BE_PLACE_OUTSIDE_ROOM);
+        }
+        cleaner.place(x, y, facing)
         this.cleaners.push(cleaner);
     }
     runCleaners() {
@@ -17,7 +24,7 @@ export class Room {
             while(cleaner.isInstructionRemain()) {
                 cleaner.runInstruction();
                 if (this.isBumpedToTheWall(cleaner)) {
-                    cleaner.reverseWithoutTurn();
+                    cleaner.reverseWithoutTurn(); // Room can reverse cleaner because room push cleaner back
                 }
             }
         }
@@ -39,89 +46,104 @@ export class Room {
         return false;
     }
 }
+
+// Robot Vacuum Cleaner should not know room
 export class Cleaner {
     private readonly name: string;
     private x: number;
     private y: number;
-    private facing: Facing;
-    private readonly instructions: Instruction[];
-    constructor(name: string, x: number, y: number, facing: Facing, instructions: Instruction[]) {
+    private facing!: Facing; // Already handle run time error
+    private instructions: Instruction[];
+    // Cleaner cannot initialize x,y, facing state completely since the position boundary is defined by room width and height
+    constructor(name: string) {
         this.name = name;
+        this.x = NaN;
+        this.y = NaN;
+        this.instructions = [];
+    }
+    // Use place in room to set x,y,facing, there is no placed boundary condition cleaner since it belongs to room not cleaner
+    place(x: number, y: number, facing: Facing) {
         this.x = x;
         this.y = y;
         this.facing = facing;
-        this.instructions = instructions;
     }
     isInstructionRemain() {
         return this.instructions.length > 0;
     }
-    turnLeft() {
+    private turnLeft() {
         switch (this.facing) {
             case "W": {
                 this.facing = 'S';
-                return this;
+                break;
             }
             case "N": {
                 this.facing = 'W';
-                return this;
+                break;
             }
             case "E": {
                 this.facing = 'N';
-                return this;
+                break;
             }
             case "S": {
                 this.facing = 'E';
-                return this;
+                break;
             }
             default:
                 throw new Error(ERROR_MESSAGE.NOT_IMPLEMENTED_FACING + this.facing);
         }
     }
-    turnRight() {
+    private turnRight() {
         switch (this.facing) {
             case "W": {
                 this.facing = 'N';
-                return this;
+                break;
             }
             case "N": {
                 this.facing = 'E';
-                return this;
+                break;
             }
             case "E": {
                 this.facing = 'S';
-                return this;
+                break;
             }
             case "S": {
                 this.facing = 'W';
-                return this;
+                break;
             }
             default:
                 throw new Error(ERROR_MESSAGE.NOT_IMPLEMENTED_FACING + this.facing);
         }
     }
-    move() {
+    private move() {
         switch (this.facing) {
             case "W": {
                 this.x--;
-                return this;
+                break;
             }
             case "N": {
                 this.y++;
-                return this;
+                break;
             }
             case "E": {
                 this.x++;
-                return this;
+                break;
             }
             case "S": {
                 this.y--;
-                return this;
+                break;
             }
             default:
                 throw new Error(ERROR_MESSAGE.NOT_IMPLEMENTED_FACING + this.facing);
         }
     }
+    isPlaced() {
+        return !(isNaN(this.x) || isNaN(this.y) || !this.facing);
+
+    }
     runInstruction() {
+        if (!this.isPlaced()) {
+            throw new Error(ERROR_MESSAGE.CLEANER_HAS_NOT_BEEN_PLACED_BEFORE_RUN_INSTRUCTIONS);
+        }
         const instruction = this.instructions.pop();
         switch (instruction) {
             case 'L': {
@@ -137,6 +159,9 @@ export class Cleaner {
             default:
                 throw new Error(ERROR_MESSAGE.NOT_IMPLEMENTED_INSTRUCTION + instruction)
         }
+    }
+    configureInstructions(instructions: Instruction[]) {
+        this.instructions = instructions;
     }
     reverseWithoutTurn() {
         switch (this.facing) {
@@ -174,17 +199,18 @@ export class Cleaner {
     }
 }
 
-function main() {
-    const room = new Room(6,6, []);
-
-    const cleaner = new Cleaner('Cleaner 1',1,2, 'N', ['L', 'M', 'L', 'M', 'L', 'M', 'L', 'M', 'M']);
-    const cleaner2 = new Cleaner('Cleaner 2',3,5, 'N', ['M', 'L', 'M']);
-    room.addCleaner(cleaner);
-    room.addCleaner(cleaner2);
-    room.runCleaners();
-
-    console.log(cleaner.getState());
-    console.log(cleaner2.getState());
-}
-
-main();
+// function main() {
+//     const room = new Room(6,6, []);
+//
+//     const cleaner = new Cleaner('Cleaner 1');
+//     const cleaner2 = new Cleaner('Cleaner 2');
+//     room.addCleaner(cleaner, 1, 2, 'N');
+//     cleaner.configureInstructions(['L', 'M', 'L', 'M', 'L', 'M', 'L', 'M', 'M']);
+//     room.addCleaner(cleaner2,  3, 5, 'N');
+//     cleaner.configureInstructions(['M', 'L', 'M']);
+//     room.runCleaners();
+//     console.log(cleaner.getState());
+//     console.log(cleaner2.getState());
+// }
+//
+// main();
